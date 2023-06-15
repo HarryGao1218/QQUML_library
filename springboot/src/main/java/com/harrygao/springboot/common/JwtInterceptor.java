@@ -6,6 +6,7 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.harrygao.springboot.entity.Admin;
+import com.harrygao.springboot.entity.User;
 import com.harrygao.springboot.exception.ServiceException;
 import com.harrygao.springboot.service.IAdminService;
 import com.harrygao.springboot.service.IUserService;
@@ -25,6 +26,8 @@ public class JwtInterceptor implements HandlerInterceptor {
 
     @Autowired
     private IAdminService adminService;
+
+    @Autowired
     private IUserService userService;
 
     @Override
@@ -42,7 +45,12 @@ public class JwtInterceptor implements HandlerInterceptor {
         // 获取 token 中的adminId
         String adminId;
         Admin admin;
-        try {
+        String userId;
+        User user;
+
+        if(Integer.parseInt(JWT.decode(token).getAudience().get(0))<10)
+        {
+            try {
             adminId = JWT.decode(token).getAudience().get(0);
             // 根据token中的userid查询数据库
             admin = adminService.getById(Integer.parseInt(adminId));
@@ -51,18 +59,40 @@ public class JwtInterceptor implements HandlerInterceptor {
             log.error(errMsg + ", token=" + token, e);
             throw new ServiceException(ERROR_CODE_401, errMsg);
         }
-        if (admin == null) {
-            throw new ServiceException(ERROR_CODE_401, "用户不存在，请重新登录");
-        }
+            if (admin == null) {
+                throw new ServiceException(ERROR_CODE_401, "用户不存在，请重新登录");
+            }
 
-        try {
-            // 用户密码加签验证 token
-            JWTVerifier jwtVerifier = JWT.require(Algorithm.HMAC256(admin.getPassword())).build();
-            jwtVerifier.verify(token); // 验证token
-        } catch (JWTVerificationException e) {
-            throw new ServiceException(ERROR_CODE_401, "token验证失败，请重新登录");
+            try {
+                // 用户密码加签验证 token
+                JWTVerifier jwtVerifier = JWT.require(Algorithm.HMAC256(admin.getPassword())).build();
+                jwtVerifier.verify(token); // 验证token
+            } catch (JWTVerificationException e) {
+                throw new ServiceException(ERROR_CODE_401, "token验证失败，请重新登录");
+            }
+            return true;}
+
+        else{try {
+            userId = JWT.decode(token).getAudience().get(0);
+            // 根据token中的userid查询数据库
+            user = userService.getById(Integer.parseInt(userId));
+        } catch (Exception e) {
+            String errMsg = "token验证失败，请重新登录";
+            log.error(errMsg + ", token=" + token, e);
+            throw new ServiceException(ERROR_CODE_401, errMsg);
         }
-        return true;
+            if (user == null) {
+                throw new ServiceException(ERROR_CODE_401, "用户不存在，请重新登录");
+            }
+
+            try {
+                // 用户密码加签验证 token
+                JWTVerifier jwtVerifier = JWT.require(Algorithm.HMAC256(user.getPassword())).build();
+                jwtVerifier.verify(token); // 验证token
+            } catch (JWTVerificationException e) {
+                throw new ServiceException(ERROR_CODE_401, "token验证失败l，请重新登录");
+            }
+            return true;}
     }
 }
 
